@@ -41,6 +41,12 @@ The addon supplies the Panorama layout and styles; the Advertisement plugin supp
 
 For custom layouts, download `Advertisement-Panorama-Workshop.zip` from the release and follow [the Workshop authoring instructions](Advertisement/workshop/README.md).
 
+### Automated releases
+
+Every push to `main` builds, verifies, and publishes a GitHub Release with both ZIP archives. Versions increment from the latest `vX.Y.Z` tag; commit markers `[minor]`, `[major]`, or `[vX.Y.Z]` select a different version. Releases can also be started manually from the **Build & Release** workflow on `main`.
+
+The same workflow checks NuGet for a newer stable `CounterStrikeSharp.API` every six hours (and on each push). When one appears, it updates the pinned package, builds and runs verification, then commits the verified update to `main` and publishes a new release. Prerelease packages are excluded. No release is created by a scheduled run when the dependency is unchanged, and failed builds/tests do not commit the update or publish a release. GitHub may delay scheduled runs; branch protection must allow the Actions bot to push dependency updates. The built-in `GITHUB_TOKEN` is sufficient; no additional secret is needed.
+
 ## Commands
 
 | Command | Description | Flag |
