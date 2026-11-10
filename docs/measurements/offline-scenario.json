@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-10",
+  "kind": "synthetic-managed-doubles",
+  "baseline_commit": "233c811c54144bb26c6588d2fa2781a6daed9edb",
+  "candidate_plugin_code_commit": "eaedaba",
+  "sdk": "10.0.400",
+  "tfm": "net10.0",
+  "css_api_contract": "1.0.378",
+  "panorama_dependency": "0.4.4",
+  "os": "Windows-11-10.0.26200-SP0",
+  "cpu": "AMD Ryzen 9 7950X 16-Core Processor",
+  "DOTNET_TieredCompilation": "0",
+  "warmup_operations": 20000,
+  "windows": 3,
+  "operations_per_window": 100000,
+  "online": [
+    0,
+    1,
+    8,
+    32
+  ],
+  "paths": [
+    "idle/active HTML OnTick",
+    "rotating chat dispatch with localization, hostname and player count"
+  ],
+  "limitations": [
+    "managed doubles omit native cost and native wrapper allocations",
+    "no full tick or client rendering",
+    "sequential baseline/candidate, no live causal percentage"
+  ],
+  "sha256": {
+    "Advertisement/Advertisement.cs": "324c6fd27c27b2a09dcffd7db7ef6e3fe5d56501448831cb81d08175e1bbc3f9",
+    "Advertisement/HtmlPlayback.cs": "d5486591a7279bf52ebe91ed9de61b1cc7ca900693ec5dd4936cf187bfcfdf21",
+    "Advertisement/Messages.cs": "ab444b0b05aa9af21ece67d75ecf4f271d99ec7da091b4a4f8f8409fbad5145f",
+    "Tests/Runtime/Program.cs": "9ab8e03828466a30d98476636a822bbe5b354d7169bb3ed157a4624ae4ecb595",
+    "Tests/Runtime/FakeApi.cs": "f9ec1728bd11118737ff777bef89cc06e8f80bab0c7f12dde843d1e59b16d22b",
+    "Tests/Runtime/Runtime.Tests.csproj": "75724f9655c10561b442986321f688919fc1c5d8a93981b532eedcb1b27c8973",
+    "Tests/Runtime/analyze.py": "477ae0bfa6646f8172884b5caaae677f6a9effb7e009d00841ce30d36d55f7af"
+  },
+  "source_hash_format": "SHA256 of canonical LF text bytes"
+}

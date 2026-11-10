@@ -1,0 +1,15 @@
+{
+  "observed_utc": "2026-11-10T06:45:11.381892+00:00",
+  "server": 7,
+  "stats": "CPU   In    Out   Uptime  Users   FPS    Players\n139.79  0.00  0.00     170     2   64.07       0\n",
+  "css": "  CounterStrikeSharp was created and is maintained by Michael \"roflmuffin\" Wilson.\n  Counter-Strike Sharp uses code borrowed from SourceMod, Source.Python, FiveM, Saul Rennison, source2gen and CS2Fixes.\n  See ACKNOWLEDGEMENTS.md for more information.\n  Current API Version: v378 (1.0.378+Branch.main.Sha.d9efaf83b951c74b988ed0a358d03db79c0a4205.d9efaf8)\n",
+  "probe_reply": "",
+  "plugins": [
+    "  [#48:LOADED]: \"Advertisement\" (v1.0.9) by thesamefabius"
+  ],
+  "hashes": {
+    "plugins/Advertisement/Advertisement.dll": "f59cb017603f6ff8cce28e97ae82071aec56972bcf0f39a096aa207923ef62bf",
+    "plugins/Advertisement/Advertisement.deps.json": "51ba3c5f19d85382c07bbc7936e8239a93c98b66e70fd600fd8b1d413eb65fa2",
+    "configs/plugins/Advertisement/Advertisement.json": "a54f0fc9f990c6e9c06fc2904896b4131977c629dd4099d206adb25d779092ed"
+  }
+}

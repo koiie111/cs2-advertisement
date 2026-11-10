@@ -1,0 +1,65 @@
+[
+  {
+    "version": "baseline",
+    "window": 0,
+    "before": "CPU   In    Out   Uptime  Users   FPS    Players\n136.77  0.00  0.00     162     2   64.01       0\n",
+    "after": "CPU   In    Out   Uptime  Users   FPS    Players\n156.64  0.00  0.00     163     2   64.01       0\n",
+    "measurement": "ADPERF calls=2025 ticks=1890240 bytes=64800 frequency=1000000000\n"
+  },
+  {
+    "version": "baseline",
+    "window": 1,
+    "before": "CPU   In    Out   Uptime  Users   FPS    Players\n156.64  0.00  0.00     163     2   63.99       0\n",
+    "after": "CPU   In    Out   Uptime  Users   FPS    Players\n184.23  0.00  0.00     163     2   63.96       0\n",
+    "measurement": "ADPERF calls=2022 ticks=1786050 bytes=64704 frequency=1000000000\n"
+  },
+  {
+    "version": "baseline",
+    "window": 2,
+    "before": "CPU   In    Out   Uptime  Users   FPS    Players\n193.51  0.00  0.00     163     2   63.99       0\n",
+    "after": "CPU   In    Out   Uptime  Users   FPS    Players\n173.83  0.00  0.00     164     2   64.01       0\n",
+    "measurement": "ADPERF calls=2025 ticks=1791502 bytes=64800 frequency=1000000000\n"
+  },
+  {
+    "version": "candidate",
+    "window": 0,
+    "before": "CPU   In    Out   Uptime  Users   FPS    Players\n208.64  0.00  0.00     164     2   64.01       0\n",
+    "after": "CPU   In    Out   Uptime  Users   FPS    Players\n163.96  0.00  0.00     164     2   64.10       0\n",
+    "measurement": "ADPERF calls=2022 ticks=1668295 bytes=0 frequency=1000000000\n"
+  },
+  {
+    "version": "candidate",
+    "window": 1,
+    "before": "CPU   In    Out   Uptime  Users   FPS    Players\n163.96  0.00  0.00     164     2   63.87       0\n",
+    "after": "CPU   In    Out   Uptime  Users   FPS    Players\n184.72  0.00  0.00     165     2   64.00       0\n",
+    "measurement": "ADPERF calls=2025 ticks=1683006 bytes=0 frequency=1000000000\n"
+  },
+  {
+    "version": "candidate",
+    "window": 2,
+    "before": "CPU   In    Out   Uptime  Users   FPS    Players\n184.72  0.00  0.00     165     2   64.03       0\n",
+    "after": "CPU   In    Out   Uptime  Users   FPS    Players\n131.74  0.00  0.00     166     2   63.95       0\n",
+    "measurement": "ADPERF calls=2025 ticks=1871178 bytes=0 frequency=1000000000\n"
+  },
+  {
+    "version": "baseline",
+    "window": 0,
+    "before": "CPU   In    Out   Uptime  Users   FPS    Players\n156.30  0.00  0.00     166     2   64.02       0\n",
+    "after": "CPU   In    Out   Uptime  Users   FPS    Players\n177.83  0.00  0.00     166     2   64.02       0\n",
+    "measurement": "ADPERF calls=2024 ticks=2161390 bytes=64768 frequency=1000000000\n"
+  },
+  {
+    "version": "baseline",
+    "window": 1,
+    "before": "CPU   In    Out   Uptime  Users   FPS    Players\n177.83  0.00  0.00     166     2   64.11       0\n",
+    "after": "CPU   In    Out   Uptime  Users   FPS    Players\n216.46  0.00  0.00     167     2   64.00       0\n",
+    "measurement": "ADPERF calls=2023 ticks=2030748 bytes=64736 frequency=1000000000\n"
+  },
+  {
+    "version": "baseline",
+    "window": 2,
+    "before": "CPU   In    Out   Uptime  Users   FPS    Players\n216.46  0.00  0.00     167     2   63.81       0\n",
+    "after": "CPU   In    Out   Uptime  Users   FPS    Players\n222.61  0.00  0.00     167     2   63.99       0\n",
+    "measurement": "ADPERF calls=2024 ticks=2149160 bytes=64768 frequency=1000000000\n"
+  }
+]
