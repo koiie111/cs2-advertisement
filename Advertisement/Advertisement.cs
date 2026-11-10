@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -42,6 +42,50 @@ public class Ads : BasePlugin, IPluginConfig<Config>
 
     public Config Config { get; set; } = new();
     private readonly User?[] _users = new User?[66];
+    private readonly HashSet<int> _activeHtml = [];
+    private readonly List<int> _expiredHtml = [];
+    private readonly nint[] _controllers = new nint[66];
+    private readonly long[] _connections = new long[66];
+    private readonly Timer?[] _welcomeTimers = new Timer?[66];
+    private long _mapGeneration;
+    private long _configGeneration;
+    private double _durationTicks;
+    private readonly Dictionary<(string Message, string Language), string> _localized = [];
+    private static readonly Regex TranslationTags = new(@"\{([^{}]+)\}", RegexOptions.Compiled);
+    private readonly Dictionary<string, string> _dispatchValues = [];
+
+    private Timer TrackTimer(float interval, Action callback, TimerFlags flags = 0)
+    {
+        Timer? timer = null;
+        timer = AddTimer(interval, () =>
+        {
+            if ((flags & TimerFlags.REPEAT) == 0 && timer is not null)
+            {
+                Timers.Remove(timer);
+                _timers.Remove(timer);
+                _panoramaAnimationTimers.Remove(timer);
+            }
+            callback();
+        }, flags);
+        return timer;
+    }
+
+    private void CancelTimer(Timer timer)
+    {
+        if (Timers.Remove(timer)) timer.Kill();
+    }
+
+    private void ResetSlot(int slot)
+    {
+        if ((uint)slot >= _users.Length) return;
+        if (_welcomeTimers[slot] is { } pending) CancelTimer(pending);
+        _welcomeTimers[slot] = null;
+        _connections[slot]++;
+        _panoramaGenerations[slot]++;
+        _controllers[slot] = 0;
+        _activeHtml.Remove(slot);
+        _users[slot] = null;
+    }
 
     public void OnConfigParsed(Config config)
     {
@@ -115,6 +159,9 @@ public class Ads : BasePlugin, IPluginConfig<Config>
         }
 
         Config = config;
+        _durationTicks = Math.Ceiling((double)(config.HtmlCenterDuration ?? 5) / Server.TickInterval);
+        _localized.Clear();
+        _configGeneration++;
     }
 
     public override void Load(bool hotReload)
@@ -122,6 +169,13 @@ public class Ads : BasePlugin, IPluginConfig<Config>
         RegisterEventHandler<EventPlayerConnectFull>(EventPlayerConnectFull);
         RegisterListener<Listeners.OnClientAuthorized>(OnClientAuthorized);
         RegisterListener<Listeners.OnTick>(OnTick);
+        RegisterListener<Listeners.OnClientDisconnect>(ResetSlot);
+        RegisterListener<Listeners.OnMapEnd>(() =>
+        {
+            _mapGeneration++;
+            for (var slot = 0; slot < _users.Length; slot++) ResetSlot(slot);
+            StopPanoramaAnimationTimers();
+        });
 
         StartTimers();
         RegisterAdCommands();
@@ -131,6 +185,7 @@ public class Ads : BasePlugin, IPluginConfig<Config>
             foreach (var player in Utilities.GetPlayers())
             {
                 _users[player.Slot] = new User();
+                _controllers[player.Slot] = player.Handle;
             }
         }
     }
@@ -138,9 +193,14 @@ public class Ads : BasePlugin, IPluginConfig<Config>
     public override void Unload(bool hotReload)
     {
         InvalidatePanoramaMessages();
+        for (var slot = 0; slot < _welcomeTimers.Length; slot++)
+        {
+            if (_welcomeTimers[slot] is { } pending) CancelTimer(pending);
+            _welcomeTimers[slot] = null;
+        }
         StopPanoramaAnimationTimers();
         foreach (var timer in _timers)
-            timer.Kill();
+            CancelTimer(timer);
         _timers.Clear();
         _panoramaLayout?.Dispose();
         _panoramaLayout = null;
@@ -167,7 +227,7 @@ public class Ads : BasePlugin, IPluginConfig<Config>
                         ShowMessage(command, [player]);
                 };
 
-                if (_adCommands.TryAdd(name, callback))
+                if (!name.Equals("css_advert_reload", StringComparison.OrdinalIgnoreCase) && _adCommands.TryAdd(name, callback))
                     AddCommand(name, "Shows the advertisement", callback);
             }
         }
@@ -178,8 +238,8 @@ public class Ads : BasePlugin, IPluginConfig<Config>
         if (slot < 0 || slot >= _users.Length)
             return;
 
+        ResetSlot(slot);
         _users[slot] = new User();
-        _panoramaGenerations[slot]++;
     }
 
     private HookResult EventPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
@@ -197,24 +257,31 @@ public class Ads : BasePlugin, IPluginConfig<Config>
 
     private void OnTick()
     {
-        var durationTicks = Math.Ceiling((double)(Config.HtmlCenterDuration ?? 5) / Server.TickInterval);
-        foreach (var player in Utilities.GetPlayers())
+        if (_activeHtml.Count == 0) return;
+        _expiredHtml.Clear();
+        foreach (var slot in _activeHtml)
         {
-            var user = _users[player.Slot];
-            if (user is null || !user.HtmlPrint)
-                continue;
-
-            if (Config.ShowHtmlWhenDead == true && player.PawnIsAlive)
-                continue;
-
-            if (user.PrintTime++ >= durationTicks)
+            var player = Utilities.GetPlayerFromSlot(slot);
+            var user = _users[slot];
+            if (player is null || !player.IsValid || player.Connected != PlayerConnectedState.Connected
+                || player.Handle != _controllers[slot] || user is null)
             {
-                user.HtmlPrint = false;
+                _expiredHtml.Add(slot);
                 continue;
             }
-
+            var elapsed = user.PrintTime;
+            var decision = HtmlPlayback.Advance(ref elapsed, _durationTicks, Config.ShowHtmlWhenDead == true, player.PawnIsAlive);
+            user.PrintTime = elapsed;
+            if (decision == HtmlDecision.Paused) continue;
+            if (decision == HtmlDecision.Expired)
+            {
+                user.HtmlPrint = false;
+                _expiredHtml.Add(slot);
+                continue;
+            }
             player.PrintToCenterHtml(user.Message);
         }
+        foreach (var slot in _expiredHtml) _activeHtml.Remove(slot);
     }
 
     private void ShowAd(Advertisement ad)
@@ -225,6 +292,7 @@ public class Ads : BasePlugin, IPluginConfig<Config>
 
     private void ShowMessage(AdMessage message, List<CCSPlayerController> players)
     {
+        _dispatchValues.Clear();
         foreach (var player in players)
         {
             if (message.Chat != null)
@@ -236,14 +304,14 @@ public class Ads : BasePlugin, IPluginConfig<Config>
 
     private void StartTimers()
     {
-        foreach (var ad in Config.Ads.Where(ad => ad.Messages.Count > 0 && ad.Interval > 0))
+        foreach (var ad in Config.Ads.Where(ad => ad.Messages.Count > 0 && float.IsFinite(ad.Interval) && ad.Interval > 0))
         {
-            _timers.Add(AddTimer(ad.Interval, () => ShowAd(ad), TimerFlags.REPEAT));
+            _timers.Add(TrackTimer(ad.Interval, () => ShowAd(ad), TimerFlags.REPEAT));
         }
 
         EnsurePanoramaLayout();
         if (Config.PanoramaEnabled && Config.PanoramaMessages.Count > 0)
-            _timers.Add(AddTimer(Config.PanoramaInterval, ShowPanoramaMessage, TimerFlags.REPEAT));
+            _timers.Add(TrackTimer(Config.PanoramaInterval, ShowPanoramaMessage, TimerFlags.REPEAT));
     }
 
     private void EnsurePanoramaLayout()
@@ -277,6 +345,7 @@ public class Ads : BasePlugin, IPluginConfig<Config>
             return;
 
         StopPanoramaAnimationTimers();
+        _dispatchValues.Clear();
         var message = Config.PanoramaMessages[_panoramaMessageIndex];
         _panoramaMessageIndex = (_panoramaMessageIndex + 1) % Config.PanoramaMessages.Count;
         var recipients = new List<(CCSPlayerController Player, long Generation)>();
@@ -334,7 +403,7 @@ public class Ads : BasePlugin, IPluginConfig<Config>
     private void SchedulePanoramaAnimation(float delay, Action callback)
     {
         Timer? timer = null;
-        timer = AddTimer(delay, () =>
+        timer = TrackTimer(delay, () =>
         {
             if (timer is not null)
                 _panoramaAnimationTimers.Remove(timer);
@@ -373,7 +442,7 @@ public class Ads : BasePlugin, IPluginConfig<Config>
     private void StopPanoramaAnimationTimers()
     {
         foreach (var timer in _panoramaAnimationTimers)
-            timer.Kill();
+            CancelTimer(timer);
         _panoramaAnimationTimers.Clear();
     }
 
@@ -401,13 +470,28 @@ public class Ads : BasePlugin, IPluginConfig<Config>
     [ConsoleCommand("css_advert_reload", "configuration restart")]
     public void ReloadAdvertConfig(CCSPlayerController? controller, CommandInfo command)
     {
+        Config replacement;
+        try
+        {
+            replacement = ConfigManager.Load<Config>(Path.GetFileName(ModuleDirectory)) ?? throw new InvalidDataException("Config is null");
+        }
+        catch (Exception exception)
+        {
+            Console.WriteLine($"[Advertisement] Reload rejected: {exception.Message}");
+            return;
+        }
         InvalidatePanoramaMessages();
+        for (var slot = 0; slot < _welcomeTimers.Length; slot++)
+        {
+            if (_welcomeTimers[slot] is { } pending) CancelTimer(pending);
+            _welcomeTimers[slot] = null;
+        }
         StopPanoramaAnimationTimers();
         HidePanoramaCards();
-        OnConfigParsed(ConfigManager.Load<Config>(Path.GetFileName(ModuleDirectory)));
+        OnConfigParsed(replacement);
         _panoramaMessageIndex = 0;
 
-        foreach (var timer in _timers) timer.Kill();
+        foreach (var timer in _timers) CancelTimer(timer);
         _timers.Clear();
         StartTimers();
         RegisterAdCommands();
@@ -421,14 +505,24 @@ public class Ads : BasePlugin, IPluginConfig<Config>
 
     private void ShowWelcomeMessage(CCSPlayerController player, WelcomeMessage welcomeMessage)
     {
-        if (player.IsBot)
+        if (player.IsBot || !float.IsFinite(welcomeMessage.DisplayDelay) || welcomeMessage.DisplayDelay < 0)
             return;
 
-        AddTimer(welcomeMessage.DisplayDelay, () =>
+        var slot = player.Slot;
+        if ((uint)slot >= _connections.Length) return;
+        var connection = _connections[slot];
+        var map = _mapGeneration;
+        var config = _configGeneration;
+        var handle = player.Handle;
+        if (_welcomeTimers[slot] is { } previous) CancelTimer(previous);
+        _welcomeTimers[slot] = TrackTimer(welcomeMessage.DisplayDelay, () =>
         {
-            if (!player.IsValid)
+            _welcomeTimers[slot] = null;
+            if (connection != _connections[slot] || map != _mapGeneration || config != _configGeneration
+                || !player.IsValid || player.Handle != handle || player.Connected != PlayerConnectedState.Connected)
                 return;
 
+            _dispatchValues.Clear();
             var processedMessage = ReplaceMessageTags(welcomeMessage.Message, player);
             switch (welcomeMessage.MessageType)
             {
@@ -463,6 +557,9 @@ public class Ads : BasePlugin, IPluginConfig<Config>
 
     private void SetHtmlPrintSettings(CCSPlayerController player, string message)
     {
+        if ((uint)player.Slot >= _users.Length) return;
+        _controllers[player.Slot] = player.Handle;
+        _activeHtml.Add(player.Slot);
         var user = _users[player.Slot] ??= new User();
 
         user.HtmlPrint = true;
@@ -475,21 +572,27 @@ public class Ads : BasePlugin, IPluginConfig<Config>
         if (player != null && player.IsValid)
             message = LocalizeMessage(message, player);
 
-        var mapName = NativeAPI.GetMapName();
-        if (Config.MapsName != null && Config.MapsName.TryGetValue(mapName, out var displayMapName))
-            mapName = displayMapName;
-
-        var replacedMessage = message
-            .Replace("{MAP}", mapName)
-            .Replace("{TIME}", DateTime.Now.ToString("HH:mm:ss"))
-            .Replace("{DATE}", DateTime.Now.ToString("dd.MM.yyyy"))
-            .Replace("{SERVERNAME}", ConVar.Find("hostname")!.StringValue)
-            .Replace("{IP}", ConVar.Find("ip")!.StringValue)
-            .Replace("{PORT}", ConVar.Find("hostport")!.GetPrimitiveValue<int>().ToString())
-            .Replace("{MAXPLAYERS}", Server.MaxPlayers.ToString())
-            .Replace("{PLAYERS}",
-                Utilities.GetPlayers().Count(u => u.PlayerPawn.Value != null && u.PlayerPawn.Value.IsValid).ToString())
-            .Replace("\n", panorama ? " " : "\u2029");
+        string Value(string tag, Func<string> resolve)
+        {
+            if (!_dispatchValues.TryGetValue(tag, out var value))
+                _dispatchValues[tag] = value = resolve();
+            return value;
+        }
+        string Replace(string text, string tag, Func<string> resolve) =>
+            text.Contains(tag, StringComparison.Ordinal) ? text.Replace(tag, Value(tag, resolve)) : text;
+        var replacedMessage = Replace(message, "{MAP}", () =>
+        {
+            var name = Server.MapName;
+            return Config.MapsName != null && Config.MapsName.TryGetValue(name, out var display) ? display : name;
+        });
+        replacedMessage = Replace(replacedMessage, "{TIME}", () => DateTime.Now.ToString("HH:mm:ss"));
+        replacedMessage = Replace(replacedMessage, "{DATE}", () => DateTime.Now.ToString("dd.MM.yyyy"));
+        replacedMessage = Replace(replacedMessage, "{SERVERNAME}", () => ConVar.Find("hostname")!.StringValue);
+        replacedMessage = Replace(replacedMessage, "{IP}", () => ConVar.Find("ip")!.StringValue);
+        replacedMessage = Replace(replacedMessage, "{PORT}", () => ConVar.Find("hostport")!.GetPrimitiveValue<int>().ToString());
+        replacedMessage = Replace(replacedMessage, "{MAXPLAYERS}", () => Server.MaxPlayers.ToString());
+        replacedMessage = Replace(replacedMessage, "{PLAYERS}", () => Utilities.GetPlayers().Count(u => u.PlayerPawn.Value != null && u.PlayerPawn.Value.IsValid).ToString());
+        replacedMessage = replacedMessage.Replace("\n", panorama ? " " : "\u2029");
 
         if (applyColorTags)
             replacedMessage = replacedMessage.ReplaceColorTags();
@@ -502,11 +605,12 @@ public class Ads : BasePlugin, IPluginConfig<Config>
 
     private string LocalizeMessage(string message, CCSPlayerController player)
     {
-        using var culture = new WithTemporaryCulture(player.GetLanguage());
-
-        return Regex.Replace(
+        var language = player.GetLanguage();
+        var key = (message, language.Name);
+        if (_localized.TryGetValue(key, out var cached)) return cached;
+        using var culture = new WithTemporaryCulture(language);
+        var result = TranslationTags.Replace(
             message,
-            @"\{([^{}]+)\}",
             match =>
             {
                 try
@@ -520,6 +624,8 @@ public class Ads : BasePlugin, IPluginConfig<Config>
                     return match.Value;
                 }
             });
+        if (_localized.Count < 4096) _localized[key] = result;
+        return result;
     }
 }
 
@@ -601,7 +707,15 @@ public class Advertisement
     public float Interval { get; init; }
     public List<AdMessage> Messages { get; set; } = [];
     private int _currentMessageIndex;
-    [JsonIgnore] public AdMessage NextMessage => Messages[_currentMessageIndex++ % Messages.Count];
+    [JsonIgnore] public AdMessage NextMessage
+    {
+        get
+        {
+            var message = Messages[_currentMessageIndex];
+            _currentMessageIndex = (_currentMessageIndex + 1) % Messages.Count;
+            return message;
+        }
+    }
 }
 
 public class AdMessage
