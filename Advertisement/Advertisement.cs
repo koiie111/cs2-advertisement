@@ -34,7 +34,7 @@ public class Ads : BasePlugin, IPluginConfig<Config>
 
     private readonly List<Timer> _timers = [];
     private readonly List<Timer> _panoramaAnimationTimers = [];
-    private readonly Dictionary<string, CommandInfo.CommandCallback> _adCommands = [];
+    private readonly Dictionary<string, CommandInfo.CommandCallback> _adCommands = new(StringComparer.OrdinalIgnoreCase);
     private readonly long[] _panoramaGenerations = new long[66];
     private PanelHandle? _panoramaLayout;
     private bool _panoramaInitialized;
@@ -733,4 +733,3 @@ public class WelcomeMessage
     public required string Message { get; init; }
     public float DisplayDelay { get; set; } = 2;
 }
-
