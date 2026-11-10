@@ -13,6 +13,18 @@ static void Check(bool condition, string message)
 {
     if (!condition) throw new Exception(message);
 }
+static string CaptureOutput(Action action)
+{
+    var previous = Console.Out;
+    using var output = new StringWriter();
+    try
+    {
+        Console.SetOut(output);
+        action();
+        return output.ToString();
+    }
+    finally { Console.SetOut(previous); }
+}
 static CCSPlayerController Player(int slot, int identity = 1)
 {
     var player = new CCSPlayerController { Slot = slot, Handle = identity * 100 + slot, PlayerName = "P" + slot };
@@ -155,6 +167,82 @@ foreach (var type in new[] { MessageType.Chat, MessageType.Center, MessageType.C
 }
 Console.WriteLine("PASS: Welcome destinations/delay, duplicate connect, 1000 timer completions, disconnect/map/unload cancellation.");
 
+foreach (var text in new string?[] { null, "", " \t\r\n" })
+{
+    // Exercise explicit JSON null as well as empty text, which nullable annotations do not reject.
+    var json = JsonSerializer.Serialize(new Config
+    {
+        Ads = [new() { Interval = 35, Messages = [new() { Chat = "rotation" }] }],
+        Commands = [new() { Names = ["css_test"], Chat = "command" }],
+        WelcomeMessage = new() { Message = text!, DisplayDelay = 0 }
+    });
+    var config = JsonSerializer.Deserialize<Config>(json)!;
+    Ads plugin = null!;
+    var output = CaptureOutput(() => plugin = Start(config));
+    Check(plugin.Config.WelcomeMessage is null && output.Contains("WelcomeMessage.Message"),
+        "Invalid welcome text was not disabled with a diagnostic");
+    var p = Player(0); Authorize(plugin, p); Connect(plugin, p);
+    Check(plugin.Timers.Count == 1, "Invalid welcome scheduled a timer");
+    plugin.Timers.Single().Fire(); Check(p.LastText == " rotation", "Invalid welcome disabled rotating ads");
+    Command(plugin, p); Check(p.LastText == " command", "Invalid welcome disabled ad commands");
+    plugin.Unload(false);
+}
+{
+    var disabled = JsonSerializer.Deserialize<Config>("""{"Ads":[],"WelcomeMessage":null}""")!;
+    Ads plugin = null!;
+    var output = CaptureOutput(() => plugin = Start(disabled));
+    var p = Player(0); Authorize(plugin, p); Connect(plugin, p);
+    Check(plugin.Timers.Count == 0 && output.Length == 0, "Explicitly disabled welcome warned or scheduled work");
+    plugin.Unload(false);
+    var defaults = JsonSerializer.Deserialize<Config>("""{"Ads":[]}""")!;
+    Check(defaults.WelcomeMessage is not null, "Omitted welcome no longer retains defaults");
+}
+Console.WriteLine("PASS: JSON null/empty/whitespace welcome, isolated disable, explicit null and omitted defaults.");
+
+foreach (var (interval, duration, enabled, hasMessages, warn) in new[]
+{
+    (1f, 2f, true, true, true),
+    (2.95f, 2f, true, true, false),
+    (3f, 2f, true, true, false),
+    (1f, 0f, true, true, false),
+    (60f, 2f, true, true, false),
+    (1f, 2f, false, true, false),
+    (1f, 2f, true, false, false)
+})
+{
+    var plugin = new Ads();
+    var output = CaptureOutput(() => plugin.OnConfigParsed(new Config
+    {
+        Ads = [], WelcomeMessage = null, PanoramaEnabled = enabled,
+        PanoramaInterval = interval, PanoramaDuration = duration,
+        PanoramaMessages = hasMessages ? ["test"] : []
+    }));
+    Check(output.Contains("interrupt") == warn, "Panorama overlap diagnostic boundary/enablement changed");
+    Check(plugin.Config.PanoramaInterval == interval && plugin.Config.PanoramaDuration == duration,
+        "Panorama warning changed configured timing");
+}
+{
+    Ads plugin = null!;
+    CaptureOutput(() => plugin = Start(new Config
+    {
+        Ads = [], WelcomeMessage = null, PanoramaEnabled = true,
+        PanoramaInterval = 1, PanoramaDuration = 2, PanoramaMessages = ["test"]
+    }));
+    var p = Player(0); Authorize(plugin, p);
+    var rotation = plugin.Timers.Single();
+    for (var i = 0; i < 100; i++)
+    {
+        var previousAnimations = plugin.Timers.Where(t => t != rotation).ToArray();
+        rotation.Fire();
+        Check(previousAnimations.All(t => t.Cancelled) && plugin.Timers.Count == 4,
+            "Overlapping Panorama retained old timers or added diagnostic timers");
+    }
+    Check(plugin.Timers.Where(t => t != rotation).Select(t => t.Interval).Order()
+        .SequenceEqual(new[] { 0.05f, 2.5f, 2.95f }), "Panorama animation timing changed");
+    plugin.Unload(false); Check(plugin.Timers.Count == 0, "Overlap retained timers on unload");
+}
+Console.WriteLine("PASS: Panorama overlap warning boundaries, unchanged timing and bounded timers.");
+
 {
     var plugin = Start(new Config { Ads = [], WelcomeMessage = null,
         Commands = [new() { Names = ["css_test", "CSS_TEST", "CSS_ADVERT_RELOAD"], Chat = "{hello} {PLAYERNAME} {unknown} {PLAYERS}" }] });
@@ -231,10 +319,14 @@ Console.WriteLine("PASS: bounded localization, shared dispatch values and hot re
     Check(ReferenceEquals(previous, plugin.Config) && plugin.Commands.Count == 1, "Invalid config mutated state");
     Check(plugin.Timers.SequenceEqual(oldTimers) && oldTimers.All(t => !t.Cancelled), "Rejected reload cancelled live timers");
     Command(plugin, p); Tick(plugin); Check(p.LastText == "original", "Rejected reload lost live output");
-    File.WriteAllText(file, JsonSerializer.Serialize(new Config { Ads = [], Commands = [new() { Names = ["css_new"], Chat = "new" }], WelcomeMessage = null }));
-    plugin.ReloadAdvertConfig(null, new());
+    File.WriteAllText(file, JsonSerializer.Serialize(new Config { Ads = [], Commands = [new() { Names = ["css_new"], Chat = "new" }],
+        WelcomeMessage = new() { Message = null!, DisplayDelay = 0 } }));
+    var reloadOutput = CaptureOutput(() => plugin.ReloadAdvertConfig(null, new()));
     Check(!ReferenceEquals(previous, plugin.Config) && plugin.Commands.ContainsKey("css_new") && !plugin.Commands.ContainsKey("css_test"), "Reload command invalidation failed");
     Check(plugin.Timers.Count == 0 && oldTimers.All(t => t.Cancelled), "Successful reload retained old/welcome timers");
+    Connect(plugin, p); Command(plugin, p, "css_new");
+    Check(plugin.Config.WelcomeMessage is null && plugin.Timers.Count == 0 && p.LastText == " new"
+        && reloadOutput.Contains("WelcomeMessage.Message"), "Reload did not isolate invalid welcome text");
     File.Delete(file); plugin.Unload(false);
 }
 Console.WriteLine("PASS: ad intervals/rotation, repeating timer cleanup, missing/malformed/successful reload.");
