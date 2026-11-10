@@ -1,6 +1,7 @@
 {
-  "baseline-instrumentation.patch": "ecd9167d81f6059f087ae98a2039132c76e8ca13044e1bac93efc57680067863",
-  "candidate-instrumentation.patch": "c734731993610d2a5be901d24363486a18ee5a1b701b4f679db4d5e429220d05",
+  "baseline-instrumentation.patch": "13a2ff6de5e1f5efc0d84788410eef937a1f7a534b5fa139fb99b9e389e879a8",
+  "candidate-instrumentation.patch": "dd9203669e571390bfea43bc3b8342d8207c75432ff7ae47fa9fb2d46f85b79a",
   "release-SHA256.json": "157845149c32925208c8a5800d842baf864fc194bd54d9f9b586427b3fd2574c",
-  "server7-idle.json": "1c8f23c58d31145b4aac41b8de63bb1af8a4816be4c8eab6d493801d3819e971"
+  "server7-idle.json": "1c8f23c58d31145b4aac41b8de63bb1af8a4816be4c8eab6d493801d3819e971",
+  "server7-restoration.json": "dc70e69a86c1b2f6359f951dfaa52dc1644c54964a422c2e40f15b5a2627259b"
 }

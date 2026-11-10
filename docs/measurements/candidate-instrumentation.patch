@@ -3,7 +3,7 @@
 @@ -255,7 +255,23 @@
          return HookResult.Continue;
      }
- 
+
 +    private long _probeCalls, _probeTicks, _probeBytes;
      private void OnTick()
 +    {
