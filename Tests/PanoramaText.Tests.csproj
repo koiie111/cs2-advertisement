@@ -9,4 +9,5 @@
     <Compile Include="..\Advertisement\PanoramaText.cs" Link="PanoramaText.cs" />
   </ItemGroup>
   <ItemGroup><Compile Include="../Advertisement/HtmlPlayback.cs" Link="HtmlPlayback.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../Advertisement/Messages.cs" Link="Messages.cs" /></ItemGroup>
 </Project>

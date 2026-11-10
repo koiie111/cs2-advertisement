@@ -73,3 +73,11 @@ if (HtmlPlayback.Advance(ref elapsed, 2, true, false) != HtmlDecision.Expired) t
 elapsed = 0; // replacement message resets its own display budget
 if (HtmlPlayback.Advance(ref elapsed, 1, false, true) != HtmlDecision.Print) throw new Exception();
 Console.WriteLine("PASS: HTML 0/1/8/32 recipients, zero/fractional duration, alive/dead pause and replacement budget.");
+
+var rotation = new Advertisement.Advertisement { Messages = [new() { Chat = "A" }, new() { Chat = "B" }, new() { Chat = "C" }] };
+for (var i = 0; i < 100000; i++)
+    if (rotation.NextMessage.Chat != new[] { "A", "B", "C" }[i % 3]) throw new Exception("Rotation order changed");
+var single = new Advertisement.Advertisement { Messages = [new() { Chat = "Only" }] };
+for (var i = 0; i < 100000; i++)
+    if (single.NextMessage.Chat != "Only") throw new Exception("Single rotation changed");
+Console.WriteLine("PASS: rotation wrap and single-message groups.");

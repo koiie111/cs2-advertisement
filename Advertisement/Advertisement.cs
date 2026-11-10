@@ -39,6 +39,10 @@ public class Ads : BasePlugin, IPluginConfig<Config>
     private PanelHandle? _panoramaLayout;
     private bool _panoramaInitialized;
     private int _panoramaMessageIndex;
+    private static readonly string[] PanelIds = Enumerable.Range(0, PanoramaText.MaxRuns).Select(i => $"AdvertisementText{i}").ToArray();
+    private static readonly string[] VariableIds = Enumerable.Range(0, PanoramaText.MaxRuns).Select(i => $"message{i}").ToArray();
+    private readonly List<PanoramaTextRun>?[] _panoramaRuns = new List<PanoramaTextRun>?[66];
+    private readonly bool[] _panoramaEnter = new bool[66], _panoramaExit = new bool[66];
 
     public Config Config { get; set; } = new();
     private readonly User?[] _users = new User?[66];
@@ -83,6 +87,7 @@ public class Ads : BasePlugin, IPluginConfig<Config>
         _connections[slot]++;
         _panoramaGenerations[slot]++;
         _controllers[slot] = 0;
+        _panoramaRuns[slot] = null;
         _activeHtml.Remove(slot);
         _users[slot] = null;
     }
@@ -329,7 +334,8 @@ public class Ads : BasePlugin, IPluginConfig<Config>
             _panoramaInitialized = true;
         }
 
-        _panoramaLayout ??= Panorama.Spawn(
+        if (_panoramaLayout is not null) return;
+        _panoramaLayout = Panorama.Spawn(
             "panorama/layout/custom_game/advertisement_panorama.vxml_c",
             new LayoutContract
             {
@@ -337,6 +343,16 @@ public class Ads : BasePlugin, IPluginConfig<Config>
                 RowCount = 0,
                 CaptureInput = false
             });
+        _panoramaLayout.OnEvent += e =>
+        {
+            if (e.Action != PanelAction.Restored || (uint)e.Player.Slot >= _panoramaRuns.Length) return;
+            var slot = e.Player.Slot;
+            if (_panoramaRuns[slot] is not { } runs) return;
+            DrawPanoramaRuns(e.Player, runs);
+            _panoramaLayout.SetClassFor(e.Player, "AdvertisementCard", "show", true);
+            _panoramaLayout.SetClassFor(e.Player, "AdvertisementCard", "enter", _panoramaEnter[slot]);
+            _panoramaLayout.SetClassFor(e.Player, "AdvertisementCard", "exit", _panoramaExit[slot]);
+        };
     }
 
     private void ShowPanoramaMessage()
@@ -364,15 +380,9 @@ public class Ads : BasePlugin, IPluginConfig<Config>
                 runs = [new PanoramaTextRun(string.Concat(runs.Select(run => run.Text)), "default")];
             }
 
-            for (var index = 0; index < PanoramaText.MaxRuns; index++)
-            {
-                var panelId = $"AdvertisementText{index}";
-                var active = index < runs.Count;
-                _panoramaLayout.SetVariableFor(player, $"message{index}", active ? runs[index].Text : string.Empty);
-                _panoramaLayout.SetClassFor(player, panelId, "hidden", !active);
-                if (active)
-                    _panoramaLayout.SetClassFor(player, panelId, $"color-{runs[index].Color}", true);
-            }
+            _panoramaRuns[player.Slot] = runs;
+            _panoramaEnter[player.Slot] = _panoramaExit[player.Slot] = false;
+            DrawPanoramaRuns(player, runs);
             _panoramaLayout.SetClassFor(player, "AdvertisementCard", "show", true);
             _panoramaLayout.SetClassFor(player, "AdvertisementCard", "enter", false);
             _panoramaLayout.SetClassFor(player, "AdvertisementCard", "exit", false);
@@ -395,9 +405,26 @@ public class Ads : BasePlugin, IPluginConfig<Config>
             foreach (var (player, generation) in recipients)
             {
                 if (player.IsValid && _panoramaGenerations[player.Slot] == generation)
+                {
                     _panoramaLayout?.Close(player);
+                    _panoramaRuns[player.Slot] = null;
+                }
             }
         });
+    }
+
+    private void DrawPanoramaRuns(CCSPlayerController player, List<PanoramaTextRun> runs)
+    {
+        if (_panoramaLayout is null) return;
+            for (var index = 0; index < PanoramaText.MaxRuns; index++)
+            {
+                var panelId = PanelIds[index];
+                var active = index < runs.Count;
+                _panoramaLayout.SetVariableFor(player, VariableIds[index], active ? runs[index].Text : string.Empty);
+                _panoramaLayout.SetClassFor(player, panelId, "hidden", !active);
+                if (active)
+                    _panoramaLayout.SetClassFor(player, panelId, $"color-{runs[index].Color}", true);
+            }
     }
 
     private void SchedulePanoramaAnimation(float delay, Action callback)
@@ -432,6 +459,8 @@ public class Ads : BasePlugin, IPluginConfig<Config>
 
             if (show.HasValue)
                 _panoramaLayout.SetClassFor(player, "AdvertisementCard", "show", show.Value);
+            if (enter.HasValue) _panoramaEnter[player.Slot] = enter.Value;
+            if (exit.HasValue) _panoramaExit[player.Slot] = exit.Value;
             if (enter.HasValue)
                 _panoramaLayout.SetClassFor(player, "AdvertisementCard", "enter", enter.Value);
             if (exit.HasValue)
@@ -463,7 +492,10 @@ public class Ads : BasePlugin, IPluginConfig<Config>
     private void InvalidatePanoramaMessages()
     {
         for (var slot = 0; slot < _panoramaGenerations.Length; slot++)
+        {
             _panoramaGenerations[slot]++;
+            _panoramaRuns[slot] = null;
+        }
     }
 
     [RequiresPermissions("@css/root")]
@@ -702,33 +734,3 @@ public class WelcomeMessage
     public float DisplayDelay { get; set; } = 2;
 }
 
-public class Advertisement
-{
-    public float Interval { get; init; }
-    public List<AdMessage> Messages { get; set; } = [];
-    private int _currentMessageIndex;
-    [JsonIgnore] public AdMessage NextMessage
-    {
-        get
-        {
-            var message = Messages[_currentMessageIndex];
-            _currentMessageIndex = (_currentMessageIndex + 1) % Messages.Count;
-            return message;
-        }
-    }
-}
-
-public class AdMessage
-{
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Chat { get; init; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Center { get; init; }
-}
-
-public class AdCommand : AdMessage
-{
-    [JsonPropertyOrder(-1)]
-    public List<string> Names { get; set; } = [];
-}
