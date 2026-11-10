@@ -12,3 +12,5 @@ jobs:
           dotnet-version: 10.0.x
       - run: dotnet build Advertisement/Advertisement.csproj -c Release
       - run: dotnet run --project Tests/PanoramaText.Tests.csproj -c Release -- .
+      - run: dotnet run --project Tests/Runtime/Runtime.Tests.csproj -c Release
+      - run: python Tests/Runtime/analyze.py
