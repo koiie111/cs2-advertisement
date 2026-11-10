@@ -291,7 +291,8 @@ public class Ads : BasePlugin, IPluginConfig<Config>
 
     private void ShowAd(Advertisement ad)
     {
-        var players = Utilities.GetPlayers().Where(u => u is { IsBot: false, IsValid: true }).ToList();
+        var players = Utilities.GetPlayers();
+        players.RemoveAll(u => u.IsBot || !u.IsValid);
         ShowMessage(ad.NextMessage, players);
     }
 
@@ -365,6 +366,7 @@ public class Ads : BasePlugin, IPluginConfig<Config>
         var message = Config.PanoramaMessages[_panoramaMessageIndex];
         _panoramaMessageIndex = (_panoramaMessageIndex + 1) % Config.PanoramaMessages.Count;
         var recipients = new List<(CCSPlayerController Player, long Generation)>();
+        var parsedMessages = new Dictionary<string, List<PanoramaTextRun>>(StringComparer.Ordinal);
         foreach (var player in Utilities.GetPlayers().Where(player => player is { IsValid: true, IsBot: false }))
         {
             if (player.Slot < 0 || player.Slot >= _panoramaGenerations.Length)
@@ -373,7 +375,9 @@ public class Ads : BasePlugin, IPluginConfig<Config>
             var generation = ++_panoramaGenerations[player.Slot];
             _panoramaLayout.Close(player);
             _panoramaLayout.Open(player);
-            var runs = PanoramaText.Parse(ReplaceMessageTags(message, player, applyColorTags: false, panorama: true));
+            var formatted = ReplaceMessageTags(message, player, applyColorTags: false, panorama: true);
+            if (!parsedMessages.TryGetValue(formatted, out var runs))
+                parsedMessages[formatted] = runs = PanoramaText.Parse(formatted);
             if (runs.Count > PanoramaText.MaxRuns)
             {
                 Console.WriteLine($"[Advertisement] Panorama message exceeds {PanoramaText.MaxRuns} color segments; displaying the full message in the default color.");
@@ -416,15 +420,15 @@ public class Ads : BasePlugin, IPluginConfig<Config>
     private void DrawPanoramaRuns(CCSPlayerController player, List<PanoramaTextRun> runs)
     {
         if (_panoramaLayout is null) return;
-            for (var index = 0; index < PanoramaText.MaxRuns; index++)
-            {
-                var panelId = PanelIds[index];
-                var active = index < runs.Count;
-                _panoramaLayout.SetVariableFor(player, VariableIds[index], active ? runs[index].Text : string.Empty);
-                _panoramaLayout.SetClassFor(player, panelId, "hidden", !active);
-                if (active)
-                    _panoramaLayout.SetClassFor(player, panelId, $"color-{runs[index].Color}", true);
-            }
+        for (var index = 0; index < PanoramaText.MaxRuns; index++)
+        {
+            var panelId = PanelIds[index];
+            var active = index < runs.Count;
+            _panoramaLayout.SetVariableFor(player, VariableIds[index], active ? runs[index].Text : string.Empty);
+            _panoramaLayout.SetClassFor(player, panelId, "hidden", !active);
+            if (active)
+                _panoramaLayout.SetClassFor(player, panelId, $"color-{runs[index].Color}", true);
+        }
     }
 
     private void SchedulePanoramaAnimation(float delay, Action callback)
@@ -505,6 +509,10 @@ public class Ads : BasePlugin, IPluginConfig<Config>
         Config replacement;
         try
         {
+            var name = Path.GetFileName(ModuleDirectory);
+            var directory = Path.Combine(Path.GetDirectoryName(typeof(BasePlugin).Assembly.Location)!, "..", "configs", "plugins", name);
+            if (!File.Exists(Path.Combine(directory, name + ".json")) && !File.Exists(Path.Combine(directory, name + ".toml")))
+                throw new FileNotFoundException("Existing configuration was not found; retaining current settings");
             replacement = ConfigManager.Load<Config>(Path.GetFileName(ModuleDirectory)) ?? throw new InvalidDataException("Config is null");
         }
         catch (Exception exception)
