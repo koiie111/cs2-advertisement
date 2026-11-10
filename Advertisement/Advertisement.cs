@@ -28,6 +28,7 @@ public class User
 
 public class Ads : BasePlugin, IPluginConfig<Config>
 {
+    private const float PanoramaCloseDelay = 0.95f;
     public override string ModuleAuthor => "thesamefabius";
     public override string ModuleName => "Advertisement";
     public override string ModuleVersion => $"v{typeof(Ads).Assembly.GetName().Version!.ToString(3)}";
@@ -94,6 +95,12 @@ public class Ads : BasePlugin, IPluginConfig<Config>
 
     public void OnConfigParsed(Config config)
     {
+        if (config.WelcomeMessage is { } welcome && string.IsNullOrWhiteSpace(welcome.Message))
+        {
+            Console.WriteLine("[Advertisement] Config 'WelcomeMessage.Message' must contain text; the welcome message will be disabled.");
+            config.WelcomeMessage = null;
+        }
+
         if (config.Ads is null)
         {
             Console.WriteLine("[Advertisement] Config 'Ads' is null; no rotating ads will be registered.");
@@ -162,6 +169,10 @@ public class Ads : BasePlugin, IPluginConfig<Config>
             Console.WriteLine("[Advertisement] Config 'PanoramaDuration' must be a finite, non-negative number; using 2 seconds.");
             config.PanoramaDuration = 2;
         }
+
+        if (config.PanoramaEnabled && config.PanoramaMessages.Count > 0
+            && config.PanoramaInterval < PanoramaCloseDelay + config.PanoramaDuration)
+            Console.WriteLine("[Advertisement] Config 'PanoramaInterval' is shorter than 'PanoramaDuration' + 0.95 seconds; each new card will interrupt the previous animation. Increase the interval to allow it to finish.");
 
         Config = config;
         _durationTicks = Math.Ceiling((double)(config.HtmlCenterDuration ?? 5) / Server.TickInterval);
@@ -402,7 +413,7 @@ public class Ads : BasePlugin, IPluginConfig<Config>
             SetPanoramaClasses(recipients, enter: false);
             SetPanoramaClasses(recipients, exit: true);
         });
-        SchedulePanoramaAnimation(0.95f + Config.PanoramaDuration, () =>
+        SchedulePanoramaAnimation(PanoramaCloseDelay + Config.PanoramaDuration, () =>
         {
             SetPanoramaClasses(recipients, exit: false);
             SetPanoramaClasses(recipients, show: false);
@@ -683,7 +694,7 @@ public class Config : IBasePluginConfig
         "{DEFAULT}Visit our Discord: {BLUE}discord.gg/example"
     ];
 
-    public WelcomeMessage? WelcomeMessage { get; init; } = new WelcomeMessage
+    public WelcomeMessage? WelcomeMessage { get; set; } = new WelcomeMessage
     {
         //0 - CHAT | 1 - CENTER | 2 - CENTER HTML
         MessageType = 0,
