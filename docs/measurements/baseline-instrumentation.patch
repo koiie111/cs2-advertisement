@@ -1,0 +1,26 @@
+--- Advertisement.cs
++++ Advertisement.cs
+@@ -195,7 +195,23 @@
+         return HookResult.Continue;
+     }
+ 
++    private long _probeCalls, _probeTicks, _probeBytes;
+     private void OnTick()
++    {
++        var bytes = GC.GetAllocatedBytesForCurrentThread();
++        var start = System.Diagnostics.Stopwatch.GetTimestamp();
++        OnTickCore();
++        _probeTicks += System.Diagnostics.Stopwatch.GetTimestamp() - start;
++        _probeBytes += GC.GetAllocatedBytesForCurrentThread() - bytes;
++        _probeCalls++;
++    }
++    [ConsoleCommand("css_advert_perf", "temporary measurement")]
++    public void Probe(CCSPlayerController? player, CommandInfo info)
++    {
++        info.ReplyToCommand($"ADPERF calls={_probeCalls} ticks={_probeTicks} bytes={_probeBytes} frequency={System.Diagnostics.Stopwatch.Frequency}");
++        _probeCalls = _probeTicks = _probeBytes = 0;
++    }
++    private void OnTickCore()
+     {
+         var durationTicks = Math.Ceiling((double)(Config.HtmlCenterDuration ?? 5) / Server.TickInterval);
+         foreach (var player in Utilities.GetPlayers())

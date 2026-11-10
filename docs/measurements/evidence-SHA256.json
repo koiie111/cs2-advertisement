@@ -1,0 +1,6 @@
+{
+  "baseline-instrumentation.patch": "ecd9167d81f6059f087ae98a2039132c76e8ca13044e1bac93efc57680067863",
+  "candidate-instrumentation.patch": "c734731993610d2a5be901d24363486a18ee5a1b701b4f679db4d5e429220d05",
+  "release-SHA256.json": "157845149c32925208c8a5800d842baf864fc194bd54d9f9b586427b3fd2574c",
+  "server7-idle.json": "1c8f23c58d31145b4aac41b8de63bb1af8a4816be4c8eab6d493801d3819e971"
+}
