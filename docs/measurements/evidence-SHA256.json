@@ -1,7 +1,11 @@
 {
-  "baseline-instrumentation.patch": "13a2ff6de5e1f5efc0d84788410eef937a1f7a534b5fa139fb99b9e389e879a8",
-  "candidate-instrumentation.patch": "dd9203669e571390bfea43bc3b8342d8207c75432ff7ae47fa9fb2d46f85b79a",
-  "release-SHA256.json": "157845149c32925208c8a5800d842baf864fc194bd54d9f9b586427b3fd2574c",
-  "server7-idle.json": "1c8f23c58d31145b4aac41b8de63bb1af8a4816be4c8eab6d493801d3819e971",
-  "server7-restoration.json": "dc70e69a86c1b2f6359f951dfaa52dc1644c54964a422c2e40f15b5a2627259b"
+  "baseline-instrumentation.patch": "475258f3ad61bc5e93cd1babbb5a3d5967a7be4418410f851dbc7fc6b32ec1ee",
+  "candidate-instrumentation.patch": "12695c06505153f1ad64fe47c6b45d074af9f3db85485fe25b1ad4892bb0ef4b",
+  "release-SHA256.json": "b3ce6d7ed3f5dbef788c7f5f4afc3e45daedcc1ead85ba7b415f9d49152bdea8",
+  "server7-idle.json": "fa1ff27f998c88b0b5cb8f0a32a9b24cf8077d56cac01f142342499d079cc632",
+  "server7-restoration.json": "9a35ab42e83018243331d87cb7ff9f1ee448495b008192ea6516b1d8a38a290e",
+  "offline-baseline.json": "0928dcf3fbfb80f1afec703b662d85f2657d614d283f88c8bf6bfac29db9ad23",
+  "offline-candidate.json": "fb81bbc478859e006f009308da15a7a36661d09f7474c8ac4fc559577ee2ed1a",
+  "offline-scenario.json": "d125a3989b6987ac149744a9c09a53fef52b4d8d5a711a762f0da0f9d0d9979a",
+  "review-release-SHA256.json": "9765b5e234b92aeb230cc8533d5defc1bb46aba39dbcfe0d2b5003c41ca7ec2e"
 }

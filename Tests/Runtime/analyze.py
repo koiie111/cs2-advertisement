@@ -1,10 +1,16 @@
 """Validate synthetic work counts and print medians; never infer native/full-tick gains."""
 import json
+import hashlib
 import statistics
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[2]
 directory = root / "docs" / "measurements"
+evidence = json.loads((directory / "evidence-SHA256.json").read_text(encoding="utf-8-sig"))
+for name, expected in evidence.items():
+    # Text hashes describe canonical LF bytes, independent of Windows checkout.
+    data = (directory / name).read_bytes().replace(b"\r\n", b"\n")
+    assert hashlib.sha256(data).hexdigest() == expected, f"Evidence hash mismatch: {name}"
 baseline = json.loads((directory / "offline-baseline.json").read_text(encoding="utf-8-sig"))
 candidate = json.loads((directory / "offline-candidate.json").read_text(encoding="utf-8-sig"))
 assert len(baseline) == len(candidate) == 33

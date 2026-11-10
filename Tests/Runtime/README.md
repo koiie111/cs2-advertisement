@@ -6,6 +6,8 @@ Compiles the **production plugin sources** with deterministic managed CSS/Panora
 
 The doubles model the relevant behavior of CounterStrikeSharp [Utilities](https://github.com/roflmuffin/CounterStrikeSharp/blob/v1.0.378/managed/CounterStrikeSharp.API/Utilities.cs), [BasePlugin](https://github.com/roflmuffin/CounterStrikeSharp/blob/v1.0.378/managed/CounterStrikeSharp.API/Core/BasePlugin.cs), [ConfigManager](https://github.com/roflmuffin/CounterStrikeSharp/blob/v1.0.378/managed/CounterStrikeSharp.API/Modules/Config/ConfigManager.cs) and [Timer](https://github.com/roflmuffin/CounterStrikeSharp/blob/v1.0.378/managed/CounterStrikeSharp.API/Modules/Timers/Timer.cs). They do not emulate native entity lifetime, callback ordering across plugins, TOML parsing, transport, client rendering or input arbitration. Config fixtures are created only below the test output directory. These tests cannot replace live acceptance.
 
+Text evidence/source SHA256 values use canonical LF line endings to survive Git checkout on Windows and Linux; release binary SHA256 values always describe the exact bytes. `analyze.py` checks the evidence manifest before comparing counts.
+
 ## Same harness on baseline and candidate
 
 From the repository root in PowerShell, with a clean baseline checkout outside the web root:
